@@ -3,7 +3,7 @@
   "name": "codex-pic",
   "main": "worker.mjs",
   "compatibility_date": "2026-11-05",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [],
 
   // Static assets configuration - serve from public/ directory
   "assets": {
