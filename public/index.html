@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>图像工作台 · Image Studio</title>
+  <link rel="stylesheet" href="/studio.css">
+  <script type="module" src="/studio.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">✳</span> 图像工作台</div>
+    <div class="topbar-actions">
+      <a class="download" href="#cases">使用案例</a>
+      <a class="download" href="#history">历史记录</a>
+      <span class="local"><span></span> 本地工作区</span>
+    </div>
+  </header>
+  <main>
+    <div class="intro">
+      <p class="eyebrow">IMAGE STUDIO / OPENAI IMAGES API</p>
+      <h1>文字生成图像</h1>
+      <p>描述你想看到的画面，设置输出规格，再生成和下载。</p>
+    </div>
+    <div class="workspace">
+      <form id="generate-form">
+        <div class="section-title"><span>01</span><h2>生成设置</h2></div>
+        <div class="field">
+          <div class="label-row">
+            <label for="prompt">提示词</label>
+            <div class="case-actions">
+              <a class="text-button" href="#cases">浏览案例</a>
+              <button type="button" class="text-button" id="sample">填入示例</button>
+            </div>
+          </div>
+          <textarea id="prompt" name="prompt" required maxlength="32000" placeholder="主体、构图、光线、色彩或想要的风格…"></textarea>
+          <small id="reuse-status" role="status"></small>
+        </div>
+        <div class="field">
+          <label for="model">图片模型</label>
+          <select id="model" name="model">
+            <option value="gpt-image-2.6-sunburst" data-extra-formats>GPT Image 2.6 Sunburst · 细节</option>
+            <option value="gpt-image-2.6-flare" data-extra-formats>GPT Image 2.6 Flare · 快速</option>
+            <option value="gpt-image-2.5-sunburst">GPT Image 2.5 Sunburst</option>
+            <option value="gpt-image-2.5-flare">GPT Image 2.5 Flare</option>
+            <option value="gpt-image-2">GPT Image 2</option>
+          </select>
+          <small id="model-id">gpt-image-2.6-sunburst</small>
+        </div>
+        <div class="field-grid">
+          <div class="field">
+            <label for="size">尺寸</label>
+            <select id="size" name="size">
+              <option value="1024x1024">方形 · 1024 × 1024</option>
+              <option value="1536x1024">横向 · 1536 × 1024</option>
+              <option value="1024x1536">竖向 · 1024 × 1536</option>
+              <option value="2048x2048">方形 · 2048 × 2048</option>
+              <option value="2048x1152">宽屏 · 2048 × 1152</option>
+              <option value="auto">自动</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="quality">画质</label>
+            <select id="quality" name="quality">
+              <option value="medium">标准</option>
+              <option value="low">快速</option>
+              <option value="high">高画质</option>
+              <option value="auto">自动</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="format">输出格式</label>
+          <select id="format" name="output_format">
+            <option value="png">PNG</option>
+            <option value="jpeg">JPEG</option>
+            <option value="webp">WebP</option>
+            <option value="gif" data-extra-format>GIF 动图</option>
+            <option value="svg" data-extra-format>SVG 矢量图</option>
+          </select>
+        </div>
+        <div id="gif-settings" hidden>
+          <div class="field-grid">
+            <div class="field">
+              <label for="frame-count">GIF 帧数</label>
+              <input id="frame-count" name="frame_count" type="number" min="2" max="64" value="9" required disabled>
+            </div>
+            <div class="field">
+              <label for="frame-duration">单帧时长（毫秒）</label>
+              <input id="frame-duration" name="frame_duration_ms" type="number" min="20" max="2000" step="10" value="200" required disabled>
+            </div>
+          </div>
+          <small class="field">尺寸按单帧计算。可在提示词中描述动作和循环方式。</small>
+        </div>
+        <div class="key-field field" id="key-field">
+          <label for="key">OpenAI API Key</label>
+          <input type="password" id="key" placeholder="sk-…" autocomplete="off" maxlength="512" required>
+          <small>密钥仅在当前页面和生成请求中使用。</small>
+        </div>
+        <div id="key-ready" class="key-ready" hidden>已读取本机环境变量中的 API Key</div>
+        <button class="generate" id="generate" type="submit"><span aria-hidden="true">✳</span><span id="generate-label">生成图片</span></button>
+        <small class="cost">每次生成一张图片，调用按 OpenAI API 用量计费。</small>
+        <p id="error" role="alert" hidden></p>
+      </form>
+      <section class="preview" aria-labelledby="preview-title">
+        <div class="preview-header">
+          <div class="section-title"><span>02</span><h2 id="preview-title">图像预览</h2></div>
+          <a class="download" id="download" hidden download>下载图片 <span aria-hidden="true">↓</span></a>
+        </div>
+        <div class="canvas" id="canvas">
+          <div class="empty" id="empty">
+            <svg viewBox="0 0 160 128" fill="none" aria-hidden="true">
+              <path d="M33 20h94v88H33z" stroke="currentColor"/>
+              <path d="M22 20h22m-11-11v22m83-11h22m-11-11v22M22 108h22m-11-11v22m83-11h22m-11-11v22" stroke="currentColor" stroke-width="2"/>
+              <path d="m33 90 31-30 20 20 13-13 30 25" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="98" cy="47" r="8" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            <p>生成的图片将在这里显示</p>
+          </div>
+          <img id="image" alt="本次生成的图像" hidden>
+        </div>
+        <div class="preview-footer">
+          <span id="status" role="status">等待生成</span>
+          <span id="metadata">—</span>
+        </div>
+      </section>
+    </div>
+    <section class="case-library" id="cases" aria-labelledby="case-title">
+      <div class="preview-header">
+        <div class="section-title"><span>03</span><h2 id="case-title">使用案例</h2></div>
+        <a class="download" href="https://github.com/YouMind-OpenLab/awesome-gpt-image-2/blob/main/README_zh.md" target="_blank" rel="noopener noreferrer">中文 README ↗</a>
+      </div>
+      <p class="history-meta">YouMind OpenLab 社区案例，按 <a class="text-button" href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a> 标注来源。</p>
+      <div class="case-filters">
+        <div class="field">
+          <label for="case-query">搜索案例</label>
+          <input id="case-query" type="search" placeholder="搜索标题、描述、作者或提示词">
+        </div>
+        <div class="field">
+          <label for="case-category">分类</label>
+          <select id="case-category"><option value="">全部分类</option></select>
+        </div>
+      </div>
+      <p class="history-status" id="case-status" role="status">正在读取案例…</p>
+      <div class="case-grid" id="case-grid"></div>
+      <nav class="case-pages" id="case-pages" aria-label="案例分页" hidden>
+        <button class="case-button" type="button" id="case-prev">上一页</button>
+        <span id="case-page"></span>
+        <button class="case-button" type="button" id="case-next">下一页</button>
+      </nav>
+    </section>
+    <section class="history" id="history" aria-labelledby="history-title">
+      <div class="section-title"><span>04</span><h2 id="history-title">历史记录</h2></div>
+      <p class="history-status" id="history-status" role="status">正在读取历史记录…</p>
+      <ul class="history-list" id="history-list" aria-label="已生成的图像"></ul>
+    </section>
+    <section class="api-log" aria-labelledby="log-title">
+      <div class="section-title"><span>05</span><h2 id="log-title">API 日志</h2></div>
+      <div class="log-grid">
+        <div>
+          <h3 id="request-title">请求 JSON</h3>
+          <pre id="request-log" tabindex="0" aria-labelledby="request-title">等待生成</pre>
+        </div>
+        <div>
+          <h3 id="response-title">响应 JSON</h3>
+          <pre id="response-log" tabindex="0" aria-labelledby="response-title">等待响应</pre>
+        </div>
+      </div>
+    </section>
+  </main>
+  <dialog class="history-dialog" id="history-dialog" aria-labelledby="history-dialog-title">
+    <header class="preview-header">
+      <h2 id="history-dialog-title">历史记录详情</h2>
+      <button class="text-button" type="button" id="history-close">关闭</button>
+    </header>
+    <p class="history-meta" id="history-meta"></p>
+    <div class="history-image"><img id="history-image" alt="历史记录中的生成图像"></div>
+    <a class="download" id="history-download" download>下载原图 ↓</a>
+    <div class="label-row history-prompt-heading">
+      <h3>提示词</h3>
+      <div class="history-prompt-actions">
+        <button class="text-button" type="button" id="history-reuse">复用提示词</button>
+        <button class="text-button" type="button" id="history-reuse-settings">复用生成参数</button>
+      </div>
+    </div>
+    <p class="history-prompt" id="history-prompt"></p>
+  </dialog>
+</body>
+</html>

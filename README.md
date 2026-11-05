@@ -1,8 +1,13 @@
 # 图像工作台
 
-一个本地运行的 OpenAI 文生图工具。支持选择图片模型、尺寸和画质，预览并下载 PNG、JPEG 或 WebP。GPT Image 2.6 Sunburst 和 Flare 还支持 GIF 动图和 SVG 矢量图。
+一个 OpenAI 文生图工具。支持选择图片模型、尺寸和画质，预览并下载 PNG、JPEG 或 WebP。GPT Image 2.6 Sunburst 和 Flare 还支持 GIF 动图和 SVG 矢量图。
 
-## 启动
+支持两种运行方式：
+
+- **本地模式**：使用 Node.js 在本机运行，适合个人开发和调试
+- **云端部署**：部署到 Cloudflare Workers，通过 https://pic.lipeng.fun 访问
+
+## 本地运行
 
 需要 Node.js 20 或更新版本。双击 `start.cmd`，然后在浏览器打开 [图像工作台](http://127.0.0.1:3210)。也可以在 PowerShell 运行以下命令。
 
@@ -24,5 +29,44 @@ node .\server.mjs
 「使用案例」索引来自 [YouMind OpenLab 中文 README](https://github.com/YouMind-OpenLab/awesome-gpt-image-2/blob/main/README_zh.md)（[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)）。可搜索、筛选并导入正文所列案例的提示词。导入时会展开有默认值的 Raycast 占位符。案例文本随项目提供，样图从 YouMind 加载。运行 `node .\update-cases.mjs` 可更新本地索引。
 
 如果端口 3210 被占用，可以在启动前设置 `$env:IMAGE_STUDIO_PORT = '3211'`，再打开终端显示的地址。按 Ctrl+C 停止服务。
+
+## 部署到 Cloudflare Workers
+
+项目支持部署到 Cloudflare Workers，静态文件通过 Workers Static Assets 提供，API 由 Worker 处理。
+
+### 部署步骤
+
+1. 安装 Wrangler CLI（如尚未安装）：
+
+   ```bash
+   npm install -g wrangler
+   ```
+
+2. 登录 Cloudflare（首次使用）：
+
+   ```bash
+   wrangler login
+   ```
+
+3. 设置 OpenAI API Key 作为 Worker Secret（可选，如不设置则需要用户在页面输入）：
+
+   ```bash
+   wrangler secret put OPENAI_API_KEY
+   ```
+
+4. 部署 Worker：
+
+   ```bash
+   npx wrangler deploy
+   ```
+
+### 访问地址
+
+- **自定义域名**：https://pic.lipeng.fun
+- **Workers.dev 备用**：部署后会显示 `*.workers.dev` URL
+
+### 平台限制
+
+Cloudflare Workers 有 30 秒 CPU 时间限制，但不影响等待外部 API 的时间。OpenAI 图片生成通常在此限制内完成。如遇超时，请稍后重试。
 
 [OpenAI 图片生成接口](https://developers.openai.com/api/reference/resources/images/methods/generate) · [GPT Image 2.6 Sunburst](https://developers.openai.com/api/docs/models/gpt-image-2.6-sunburst) · [GPT Image 2.6 Flare](https://developers.openai.com/api/docs/models/gpt-image-2.6-flare)
