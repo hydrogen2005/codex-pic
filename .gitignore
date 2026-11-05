@@ -1,0 +1,6 @@
+# Wrangler
+.wrangler/
+node_modules/
+
+# Local environment
+.dev.vars
