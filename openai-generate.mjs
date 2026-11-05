@@ -75,7 +75,8 @@ export function setSecurityHeaders(headers) {
   headers.set('Content-Security-Policy', CSP_HEADER);
 }
 
-export async function callOpenAI({ payload, key, signal, send = fetch }) {
+export async function callOpenAI({ payload, key, signal, send }) {
+  const doFetch = send ?? globalThis.fetch.bind(globalThis);
   const started = Date.now();
   const requestLog = logBody(payload, key);
   let upstreamStatus = null;
@@ -83,11 +84,10 @@ export async function callOpenAI({ payload, key, signal, send = fetch }) {
   let data = null;
 
   try {
-    const result = await send(endpoint, {
+    const result = await doFetch(endpoint, {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      redirect: 'error',
       signal,
     });
     upstreamStatus = result.status;
@@ -132,17 +132,18 @@ export async function callOpenAI({ payload, key, signal, send = fetch }) {
       requestLog,
       responseLog: makeResponseLog({ model: payload.model, data, upstreamStatus, requestId, started, key }),
     };
-  } catch {
+  } catch (err) {
     const aborted = signal?.aborted ?? false;
-    const error = aborted
+    const userError = aborted
       ? '等待 OpenAI API 响应超时。请稍后再试。'
       : '无法连接 OpenAI API，请检查本机网络。';
+    const logDetail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     return {
       success: false,
       status: aborted ? 504 : 502,
-      body: { error, requestId: requestId ?? undefined },
+      body: { error: userError, requestId: requestId ?? undefined },
       requestLog,
-      responseLog: makeResponseLog({ model: payload.model, data, upstreamStatus, requestId, started, key, localError: error }),
+      responseLog: makeResponseLog({ model: payload.model, data, upstreamStatus, requestId, started, key, localError: logDetail }),
     };
   }
 }
