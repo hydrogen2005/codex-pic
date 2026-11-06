@@ -12,6 +12,53 @@ import {
   callOpenAI,
 } from './openai-generate.mjs';
 
+
+const CASE_IMAGE_PREFIX = '/case-image/';
+const CASE_IMAGE_ORIGIN = 'https://cms-assets.youmind.com/';
+
+async function proxyCaseImage(requestPath) {
+  if (!requestPath.startsWith(CASE_IMAGE_PREFIX)) return null;
+  const rest = requestPath.slice(CASE_IMAGE_PREFIX.length);
+  if (!rest || rest.includes('..') || rest.startsWith('/') || rest.includes('\\')) {
+    return jsonResponse(400, { error: '无效的案例图片路径。' });
+  }
+  let upstream;
+  try {
+    upstream = new URL(rest, CASE_IMAGE_ORIGIN);
+  } catch {
+    return jsonResponse(400, { error: '无效的案例图片路径。' });
+  }
+  if (upstream.origin !== 'https://cms-assets.youmind.com' || !upstream.pathname.startsWith('/')) {
+    return jsonResponse(400, { error: '无效的案例图片路径。' });
+  }
+  const doFetch = globalThis.fetch.bind(globalThis);
+  let upstreamResponse;
+  try {
+    upstreamResponse = await doFetch(upstream, {
+      headers: {
+        Accept: 'image/*,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0',
+        Referer: 'https://youmind.com/',
+      },
+    });
+  } catch {
+    return jsonResponse(502, { error: '案例图片暂时无法读取。' });
+  }
+  if (!upstreamResponse.ok) {
+    return jsonResponse(upstreamResponse.status === 404 ? 404 : 502, { error: '案例图片暂时无法读取。' });
+  }
+  const contentType = upstreamResponse.headers.get('content-type') || 'application/octet-stream';
+  if (!contentType.startsWith('image/')) {
+    return jsonResponse(502, { error: '案例图片暂时无法读取。' });
+  }
+  const headers = new Headers({
+    'Content-Type': contentType,
+    'Cache-Control': 'public, max-age=86400',
+  });
+  setSecurityHeaders(headers);
+  return new Response(upstreamResponse.body, { status: 200, headers });
+}
+
 function jsonResponse(status, body, extraHeaders = {}) {
   const headers = new Headers({ 'Content-Type': 'application/json; charset=utf-8' });
   setSecurityHeaders(headers);
@@ -39,7 +86,14 @@ export default {
       return jsonResponse(200, { hasServerKey: Boolean(apiKey) });
     }
 
+    if (request.method === 'GET') {
+      const proxied = await proxyCaseImage(path);
+      if (proxied) return proxied;
+    }
+
     if (path !== '/api/generate' || request.method !== 'POST') {
+      // With Workers Static Assets, non-/api routes are normally served by ASSETS.
+      // Self-contained deploys handle static files separately; keep 404 for unknown API paths.
       return jsonResponse(404, { error: '页面不存在。' });
     }
 

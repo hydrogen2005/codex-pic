@@ -37,11 +37,16 @@ function caseCard(item) {
     image.alt = item.title + '的生成样图';
     image.loading = 'lazy';
     image.decoding = 'async';
+    image.referrerPolicy = 'no-referrer';
     image.addEventListener('error', () => {
       image.hidden = true;
       placeholder.hidden = false;
     }, { once: true });
-    image.src = item.image;
+    // YouMind CDN hotlink-protects foreign Referers; serve via same-origin proxy.
+    const prefix = 'https://cms-assets.youmind.com/';
+    image.src = item.image.startsWith(prefix)
+      ? '/case-image/' + item.image.slice(prefix.length)
+      : item.image;
     preview.append(image);
   }
   const body = element('div', 'case-body');

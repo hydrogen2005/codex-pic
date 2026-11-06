@@ -49,7 +49,45 @@ export function createStudio({ apiKey = process.env.OPENAI_API_KEY?.trim(), send
       return json(response, 403, { error: '请通过本机地址访问。' });
     }
 
-    const path = request.url;
+    const requestUrl = new URL(request.url, `http://${host}`);
+    const path = requestUrl.pathname;
+    if (request.method === 'GET' && path.startsWith('/case-image/')) {
+      const rest = path.slice('/case-image/'.length);
+      if (!rest || rest.includes('..') || rest.startsWith('/') || rest.includes('\\')) {
+        return json(response, 400, { error: '无效的案例图片路径。' });
+      }
+      let upstream;
+      try {
+        upstream = new URL(rest, 'https://cms-assets.youmind.com/');
+      } catch {
+        return json(response, 400, { error: '无效的案例图片路径。' });
+      }
+      if (upstream.origin !== 'https://cms-assets.youmind.com') {
+        return json(response, 400, { error: '无效的案例图片路径。' });
+      }
+      try {
+        const upstreamResponse = await send(upstream, {
+          headers: {
+            Accept: 'image/*,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0',
+            Referer: 'https://youmind.com/',
+          },
+        });
+        if (!upstreamResponse.ok) {
+          return json(response, upstreamResponse.status === 404 ? 404 : 502, { error: '案例图片暂时无法读取。' });
+        }
+        const contentType = upstreamResponse.headers.get('content-type') || 'application/octet-stream';
+        if (!contentType.startsWith('image/')) {
+          return json(response, 502, { error: '案例图片暂时无法读取。' });
+        }
+        response.setHeader('Cache-Control', 'public, max-age=86400');
+        response.writeHead(200, { 'Content-Type': contentType });
+        const buffer = Buffer.from(await upstreamResponse.arrayBuffer());
+        return response.end(buffer);
+      } catch {
+        return json(response, 502, { error: '案例图片暂时无法读取。' });
+      }
+    }
     const asset = assets.get(path);
     if (request.method === 'GET' && asset) {
       try {
